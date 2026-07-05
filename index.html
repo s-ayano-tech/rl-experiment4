@@ -591,20 +591,30 @@
         do { inaccurate_types = shuffleArray(inaccurate_types); } while (hasConsecutiveValue(inaccurate_types, 4));
 
         for (let i = 0; i < 20; i++) {
+            // ① 正確な人のデータを一旦変数にまとめる
             let dl = accurate_dirs[i];
             let tl = accurate_types[i];
-            let txtL = (dl === 0 ? "左  -5枚" : "右  -5枚")
+            let txtL = (dl === 0 ? "左  -5枚" : "右  -5枚"); // ※利益版なら +5枚 にする
             let rewLL = (tl === 1 ? (dl === 0 ? 5 : 0) : (dl === 0 ? 0 : 5));
             let rewLR = (tl === 1 ? (dl === 0 ? 0 : 5) : (dl === 0 ? 5 : 0));
-            // block: 5サイクルごとにブロック数を算出 (1〜4)
-            trials.push({ char: 'accurate', text: txtL, rewL: rewLL, rewR: rewLR, cycle: i + 1, block: Math.ceil((i + 1) / 5) });
+            let acc_trial = { char: 'accurate', text: txtL, rewL: rewLL, rewR: rewLR, cycle: i + 1, block: Math.ceil((i + 1) / 5) };
 
+            // ② 不正確な人のデータを一旦変数にまとめる
             let dr = inaccurate_dirs[i];
             let tr = inaccurate_types[i];
-            let txtR = (dr === 0 ? "左  -5枚" : "右  -5枚");
+            let txtR = (dr === 0 ? "左  -5枚" : "右  -5枚"); // ※利益版なら +5枚 にする
             let rewRL = (tr === 4 ? (dr === 0 ? 5 : 0) : (dr === 0 ? 0 : 5));
             let rewRR = (tr === 4 ? (dr === 0 ? 0 : 5) : (dr === 0 ? 5 : 0));
-            trials.push({ char: 'inaccurate', text: txtR, rewL: rewRL, rewR: rewRR, cycle: i + 1, block: Math.ceil((i + 1) / 5) });
+            let inacc_trial = { char: 'inaccurate', text: txtR, rewL: rewRL, rewR: rewRR, cycle: i + 1, block: Math.ceil((i + 1) / 5) };
+            
+            // ③ ★50%の確率で順番を入れ替えて push する
+            if (Math.random() < 0.5) {
+                trials.push(acc_trial);
+                trials.push(inacc_trial);
+            } else {
+                trials.push(inacc_trial);
+                trials.push(acc_trial);
+            }
         }
         return trials;
     }
@@ -640,7 +650,7 @@
             document.getElementById('points').innerText = (current_phase==='test') ? '？？？' : total_money + "枚";
             document.getElementById('trial-counter').style.display = 'block';
             var d = window.current_trial_data;
-            document.getElementById('trial-counter').innerText = (current_phase === 'training' ? d.cycle + "/20" : (trial_cursor + 1) + "/20");
+            document.getElementById('trial-counter').innerText = (current_phase === 'training' ? d.cycle + "/20" : (trial_cursor + 1) + "/30");
         }
     };
 
@@ -777,49 +787,77 @@
                     }
                 }
 
+                // === ここからトレーニングフェーズの記録 ===
                 if (current_phase === 'training') {
                     summary_data.total_clicks_training++;
                     window.cycle_stats.clicks++; 
                     
                     let hint_side = d.text.includes("左") ? 0 : 1; 
+                    let is_follow = (side === hint_side); // 指示に従ったかどうか
                     
-                    if (side === hint_side) { window.cycle_stats.follow++; } 
+                    if (is_follow) { window.cycle_stats.follow++; } 
                     else { window.cycle_stats.unfollow++; }
 
                     if(d.char === 'accurate') {
-                        if (side === hint_side) summary_data.follow_accurate_training++;
+                        if (is_follow) summary_data.follow_accurate_training++;
                         else summary_data.unfollow_accurate_training++;
                     } else {
-                        if (side === hint_side) summary_data.follow_inaccurate_training++;
+                        if (is_follow) summary_data.follow_inaccurate_training++;
                         else summary_data.unfollow_inaccurate_training++;
                     }
                     
+                    // トレーニングフェーズのデータ書き込み
                     jsPsych.data.write({ 
                         phase: current_phase, cycle: d.cycle, block: d.block, trial: trial_cursor, 
-                        response_side: side === 0 ? 'left' : 'right', character: d.char,
-                        hint_side: hint_side === 0 ? 'left' : 'right',
+                        response_side: side === 0 ? 'left' : 'right', // 選択した方向
+                        character: d.char,
+                        hint_side: hint_side === 0 ? 'left' : 'right', // キャラが指示した方向
+                        followed_hint: is_follow, // 指示に従ったか（TRUE/FALSE）
                         reward_val: d.rewL > 0 || d.rewR > 0 ? (d.rewL > 0 ? d.rewL : d.rewR) : 0, 
-                        lost_val: rew, // ★追加：この試行で実際に失った金額
+                        lost_val: rew, 
                         cod: is_switch, rt: now - window.choice_start_time 
                     });
+
+                // === ここからテストフェーズの記録 ===
                 } else if (current_phase === 'test') {
                     summary_data.total_clicks_test++;
                     window.cycle_stats.clicks++; 
                     
+                    // 正確な人と不正確な人が指した方向
                     let acc_dir = (experiment_data.accurate_color === 'red') ? d.red_dir : d.blue_dir;
                     let inacc_dir = (experiment_data.inaccurate_color === 'red') ? d.red_dir : d.blue_dir;
                     
-                    if (side === acc_dir) window.cycle_stats.follow_acc++; else window.cycle_stats.unfollow_acc++;
-                    if (side === inacc_dir) window.cycle_stats.follow_inacc++; else window.cycle_stats.unfollow_inacc++;
+                    // 正確な人と不正確な人が提示したコインの枚数
+                    let acc_val = (experiment_data.accurate_color === 'red') ? d.red_val : d.blue_val;
+                    let inacc_val = (experiment_data.inaccurate_color === 'red') ? d.red_val : d.blue_val;
+
+                    // 指示に従ったかどうかの判定
+                    let followed_acc = (side === acc_dir);
+                    let followed_inacc = (side === inacc_dir);
+
+                    if (followed_acc) window.cycle_stats.follow_acc++; else window.cycle_stats.unfollow_acc++;
+                    if (followed_inacc) window.cycle_stats.follow_inacc++; else window.cycle_stats.unfollow_inacc++;
                     if (side === d.red_dir) summary_data.follow_red_test++; else summary_data.unfollow_red_test++;
                     if (side === d.blue_dir) summary_data.follow_blue_test++; else summary_data.unfollow_blue_test++;
 
+                    // テストフェーズのデータ書き込み
                     jsPsych.data.write({ 
                         phase: current_phase, cycle: d.cycle, block: d.block, trial: trial_cursor, 
-                        response_side: side === 0 ? 'left' : 'right',
-                        red_hint_side: d.red_dir === 0 ? 'left' : 'right', blue_hint_side: d.blue_dir === 0 ? 'left' : 'right',
+                        response_side: side === 0 ? 'left' : 'right', // ★選択した方向
+                        
+                        accurate_hint_side: acc_dir === 0 ? 'left' : 'right', // ★正確な人が指示した方向
+                        inaccurate_hint_side: inacc_dir === 0 ? 'left' : 'right',
+                        
+                        accurate_val: acc_val, // ★正確な人が示したコインの枚数
+                        inaccurate_val: inacc_val, 
+                        
+                        followed_accurate: followed_acc, // ★正確な人に従ったか（TRUE/FALSE）
+                        followed_inaccurate: followed_inacc,
+
+                        red_hint_side: d.red_dir === 0 ? 'left' : 'right', 
+                        blue_hint_side: d.blue_dir === 0 ? 'left' : 'right',
                         red_val: d.red_val, blue_val: d.blue_val,
-                        lost_val: rew, // ★追加：この試行で実際に失った金額
+                        lost_val: rew, 
                         cod: is_switch, rt: now - window.choice_start_time 
                     });
                 }
@@ -977,7 +1015,7 @@
             document.getElementById('score-board').style.display = 'block'; 
             document.getElementById('points').innerText = "？？？";
             document.getElementById('trial-counter').style.display = 'block';
-            document.getElementById('trial-counter').innerText = (trial_cursor + 1) + "/20";
+            document.getElementById('trial-counter').innerText = (trial_cursor + 1) + "/30";
         }
     };
 
@@ -985,7 +1023,7 @@
         timeline: [test_cue, box_choice, ici_wait],
         loop_function: function(){ 
             trial_cursor++;
-            return trial_cursor < 20; 
+            return trial_cursor < 30; 
         }
     };
     timeline.push(test_block);
@@ -1032,7 +1070,7 @@
       stimulus: function() {
           return `<div class="instruction-wrap" style="text-align:center;">
               <h2>お疲れ様でした。ゲーム終了です。</h2>
-              <p>あなたは最終的に<span style="color:red;font-size:24px;font-weight:bold;">1000枚</span>失って、<span style="color:red;font-size:24px;font-weight:bold;">3000枚</span>獲得しました。</p>
+              <p>あなたは最終的に<span style="color:red;font-size:24px;font-weight:bold;">750枚</span>失いましたが、<span style="color:red;font-size:24px;font-weight:bold;">3000枚</span>入れられました。</p>
           </div>`;
       },
       choices: ['次へ'],
