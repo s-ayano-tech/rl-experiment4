@@ -294,21 +294,8 @@
         unfollow_accurate_training: 0,
         unfollow_inaccurate_training: 0, 
         total_success_training: 0,
-        success_unfollow_accurate_training: 0,
         total_success_test: 0,
-        success_follow_accurate_training: 0,
-        success_unfollow_accurate_training: 0,
-        success_follow_accurate_test: 0,
-        success_unfollow_accurate_test: 0,
         total_clicks_test: 0,
-        points_lost_follow_accurate_training: 0,     // ★追加
-        points_lost_follow_inaccurate_training: 0,   // ★追加
-        points_lost_unfollow_accurate_training: 0,   // ★追加
-        points_lost_unfollow_inaccurate_training: 0,
-        points_lost_follow_accurate_test: 0,     // ★追加
-        points_lost_follow_inaccurate_test: 0,   // ★追加
-        points_lost_unfollow_accurate_test: 0,   // ★追加
-        points_lost_unfollow_inaccurate_test: 0,
         avoided_points_training: 0,  // （トレーニングフェーズで防いだ合計枚数）
         avoided_points_follow_accurate_training: 0,//トレーニングフェーズで正確なRPに従って防いだ合計枚数
         avoided_points_test: 0,
@@ -760,7 +747,7 @@
             window.cycle_stats = {
                 clicks: 0, follow: 0, unfollow: 0, points_lost: 0,
                 follow_acc: 0, unfollow_acc: 0, follow_inacc: 0, unfollow_inacc: 0,
-                avoided_points_follow_acc: 0
+                avoided_points_follow_acc: 0,avoided_points_unfollow_acc: 0, avoided_points_follow_inacc: 0, avoided_points_unfollow_inacc: 0
             };
         },
         on_load: function(){
@@ -798,10 +785,25 @@
                             summary_data.avoided_points_training += dangerous_val; 
                             
                             let hint_side = d.text.includes("左") ? 0 : 1; 
-                            // 正確なキャラのヒント通りにクリックして防げた場合
-                            if (dangerous_side === hint_side && d.char === 'accurate') {
-                                summary_data.avoided_points_follow_accurate_training += dangerous_val;
-                                window.cycle_stats.avoided_points_follow_acc += dangerous_val;
+                            let is_follow = (dangerous_side === hint_side); // ★防ぐための正解がヒント通りだったか判定
+                            
+                            // ★正確なキャラと不正確なキャラ、さらに従ったか逆らったかで4つに分岐して加算
+                            if (d.char === 'accurate') {
+                                if (is_follow) {
+                                    summary_data.avoided_points_follow_accurate_training += dangerous_val;
+                                    window.cycle_stats.avoided_points_follow_acc += dangerous_val;
+                                } else {
+                                    summary_data.avoided_points_unfollow_accurate_training += dangerous_val;
+                                    window.cycle_stats.avoided_points_unfollow_acc += dangerous_val;
+                                }
+                            } else if (d.char === 'inaccurate') {
+                                if (is_follow) {
+                                    summary_data.avoided_points_follow_inaccurate_training += dangerous_val;
+                                    window.cycle_stats.avoided_points_follow_inacc += dangerous_val;
+                                } else {
+                                    summary_data.avoided_points_unfollow_inaccurate_training += dangerous_val;
+                                    window.cycle_stats.avoided_points_unfollow_inacc += dangerous_val;
+                                }
                             }
                         } else if (current_phase === 'test') {
                             summary_data.total_success_test++;
@@ -958,6 +960,9 @@
                 data.cycle_unfollow_hint = window.cycle_stats.unfollow;
                 data.cycle_lost_points = window.cycle_stats.points_lost;
                 data.cycle_avoided_points_follow_accurate = window.cycle_stats.avoided_points_follow_acc;
+                data.cycle_avoided_points_unfollow_accurate = window.cycle_stats.avoided_points_unfollow_acc; 
+                data.cycle_avoided_points_follow_inaccurate = window.cycle_stats.avoided_points_follow_inacc;
+                data.cycle_avoided_points_unfollow_inaccurate = window.cycle_stats.avoided_points_unfollow_inacc;
             } else if (current_phase === 'test') {
                 data.cycle_follow_accurate = window.cycle_stats.follow_acc;
                 data.cycle_unfollow_accurate = window.cycle_stats.unfollow_acc;
@@ -1216,12 +1221,7 @@
               unfollow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.unfollow_accurate_training : 0,
               unfollow_inaccurate_training: typeof summary_data !== 'undefined' ? summary_data.unfollow_inaccurate_training : 0,
               total_success_training: typeof summary_data !== 'undefined' ? summary_data.total_success_training : 0,
-              success_unfollow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.success_unfollow_accurate_training : 0,
               total_success_test: typeof summary_data !== 'undefined' ? summary_data.total_success_test : 0,
-              success_follow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.success_follow_accurate_training : 0,
-              success_unfollow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.success_unfollow_accurate_training : 0,
-              success_follow_accurate_test: typeof summary_data !== 'undefined' ? summary_data.success_follow_accurate_test : 0,
-              success_unfollow_accurate_test: typeof summary_data !== 'undefined' ? summary_data.success_unfollow_accurate_test : 0,
               total_clicks_test: typeof summary_data !== 'undefined' ? summary_data.total_clicks_test : 0,
               follow_accurate_test: typeof summary_data !== 'undefined' ? summary_data.follow_accurate_test : 0,
               unfollow_accurate_test: typeof summary_data !== 'undefined' ? summary_data.unfollow_accurate_test : 0,
@@ -1233,19 +1233,14 @@
               total_money_lost: typeof total_money !== 'undefined' ? total_money : 0,
               total_money_lost_test: typeof total_money_test !== 'undefined' ? total_money_test : 0, 
               total_money_lost_all: (typeof total_money !== 'undefined' ? total_money : 0) + (typeof total_money_test !== 'undefined' ? total_money_test : 0),
-              points_lost_follow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.points_lost_follow_accurate_training : 0,
-              points_lost_follow_inaccurate_training: typeof summary_data !== 'undefined' ? summary_data.points_lost_follow_inaccurate_training : 0,
-              points_lost_unfollow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.points_lost_unfollow_accurate_training : 0,
-              points_lost_unfollow_inaccurate_training: typeof summary_data !== 'undefined' ? summary_data.points_lost_unfollow_inaccurate_training : 0,
-              points_lost_follow_accurate_test: typeof summary_data !== 'undefined' ? summary_data.points_lost_follow_accurate_test : 0,
-              points_lost_follow_inaccurate_test: typeof summary_data !== 'undefined' ? summary_data.points_lost_follow_inaccurate_test : 0,
-              points_lost_unfollow_accurate_test: typeof summary_data !== 'undefined' ? summary_data.points_lost_unfollow_accurate_test : 0,
-              points_lost_unfollow_inaccurate_test: typeof summary_data !== 'undefined' ? summary_data.points_lost_unfollow_inaccurate_test : 0,
               avoided_points_training: typeof summary_data !== 'undefined' ? summary_data.avoided_points_training : 0,
               avoided_points_follow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.avoided_points_follow_accurate_training : 0,
+              avoided_points_unfollow_accurate_training: typeof summary_data !== 'undefined' ? summary_data.avoided_points_unfollow_accurate_training : 0,
+              avoided_points_follow_inaccurate_training: typeof summary_data !== 'undefined' ? summary_data.avoided_points_follow_inaccurate_training : 0,
+              avoided_points_unfollow_inaccurate_training: typeof summary_data !== 'undefined' ? summary_data.avoided_points_unfollow_inaccurate_training : 0,
               avoided_points_test: typeof summary_data !== 'undefined' ? summary_data.avoided_points_test : 0,
-              final_money_reward_calculated: 4000 - ((typeof total_money !== 'undefined' ? total_money : 0) + (typeof total_money_test !== 'undefined' ? total_money_test : 0)),
-              final_money_reward: 3000, // 最終獲得金額は必ず3000枚
+              final_money_reward_calculated: 1000 - (typeof total_money !== 'undefined' ? total_money : 0), //+ (typeof total_money_test !== 'undefined' ? total_money_test : 0)),
+              final_money_reward: 750, // 最終獲得金額は必ず750枚
               eval_inaccurate: experiment_data.eval_inaccurate || '未回答',
               eval_accurate: experiment_data.eval_accurate || '未回答',
               pre_happy: experiment_data.pre_happy || '未回答',
