@@ -808,9 +808,36 @@
                                     window.cycle_stats.avoided_points_unfollow_inacc += dangerous_val;
                                 }
                             }
+                            jsPsych.data.write({
+                                    event_type: 'avoidance_success', 
+                                    phase: current_phase, 
+                                    cycle: d.cycle, block: d.block, trial: trial_cursor,
+                                    character: d.char,
+                                    hint_side: hint_side === 0 ? 'left' : 'right',
+                                    followed_hint: is_follow,
+                                    lost_val: 0, 
+                                    avoided_val: dangerous_val, 
+                                    rt: Date.now() - window.choice_start_time 
+                                });
+
                         } else if (current_phase === 'test') {
                             summary_data.total_success_test++;
                             summary_data.avoided_points_test += dangerous_val; 
+                            let acc_dir = (experiment_data.accurate_color === 'red') ? d.red_dir : d.blue_dir;
+                            let inacc_dir = (experiment_data.inaccurate_color === 'red') ? d.red_dir : d.blue_dir;
+
+                            jsPsych.data.write({
+                                event_type: 'avoidance_success', 
+                                phase: current_phase, test_condition: d.test_condition,
+                                cycle: d.cycle, block: d.block, trial: trial_cursor,
+                                accurate_hint_side: acc_dir === 0 ? 'left' : 'right', 
+                                inaccurate_hint_side: inacc_dir === 0 ? 'left' : 'right',
+                                followed_accurate: (dangerous_side === acc_dir), 
+                                followed_inaccurate: (dangerous_side === inacc_dir),
+                                lost_val: 0, 
+                                avoided_val: dangerous_val, 
+                                rt: Date.now() - window.choice_start_time 
+                                });
                         }
                     }
                     // 裏側のタイマーを次のスケジュールへ進める
@@ -837,7 +864,7 @@
                         // データ記録用（自動で失った記録）
                         jsPsych.data.write({
                             event_type: 'automatic_loss', phase: current_phase, cycle: d.cycle, block: d.block, trial: trial_cursor,
-                            lost_val: dangerous_val, dangerous_side: dangerous_side === 0 ? 'left' : 'right'
+                            lost_val: dangerous_val, avoided_val: 0, dangerous_side: dangerous_side === 0 ? 'left' : 'right'
                         });
                         
                     } else if (current_phase === 'test') {
@@ -846,7 +873,7 @@
                         window.cycle_stats.points_lost += dangerous_val; 
                         jsPsych.data.write({
                             event_type: 'automatic_loss', phase: current_phase, cycle: d.cycle, block: d.block, trial: trial_cursor,
-                            lost_val: dangerous_val, dangerous_side: dangerous_side === 0 ? 'left' : 'right'
+                            lost_val: dangerous_val, avoided_val: 0, dangerous_side: dangerous_side === 0 ? 'left' : 'right'
                         });
                     }
                     
@@ -911,6 +938,7 @@
                         hint_side: hint_side === 0 ? 'left' : 'right',
                         followed_hint: is_follow, 
                         lost_val: 0, // クリック行動自体では直接失われない
+                        avoided_val: 0,
                         avoided: (side === dangerous_side && !is_switch), // 回避アクションだったか
                         cod: is_switch, rt: now - window.choice_start_time 
                     });
@@ -938,7 +966,8 @@
                         accurate_hint_side: acc_dir === 0 ? 'left' : 'right', 
                         inaccurate_hint_side: inacc_dir === 0 ? 'left' : 'right',
                         followed_accurate: followed_acc, followed_inaccurate: followed_inacc,
-                        lost_val: 0, 
+                        lost_val: 0,
+                        avoided_val: 0,
                         avoided: (side === dangerous_side && !is_switch), 
                         cod: is_switch, rt: now - window.choice_start_time 
                     });
